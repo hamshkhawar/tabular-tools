@@ -105,10 +105,17 @@ def main(  # noqa: PLR0913
                 table = table.select(features)
 
             table = table.to_pandas()
-            new_column_names = [chvalue + col for col in table.columns]
+            new_column_names = [chvalue.upper() + col for col in table.columns]
             # Rename the DataFrame columns
             table.columns = new_column_names
-
+            table["well"] = None
+            if len(group_vars) == 2:
+                rowname = d[0].get(group_vars[0])
+                colname = d[0].get(group_vars[1])
+                table["well"] = f"{rowname}{int(colname):02d}"
+            else:
+                rowname = d[0].get(group_vars[0])
+                table["well"] = f"{rowname}"
             tables_to_append.append(table)
         
         prf = pd.concat(tables_to_append, axis=1)
@@ -116,10 +123,18 @@ def main(  # noqa: PLR0913
 
 
     combined_df = pd.concat(combined_df, axis=0)
+    # Remove duplicate columns based on column names
+    combined_df = combined_df.loc[:, ~combined_df.columns.duplicated()]
     platename = pathlib.Path(inp_dir).name
     combined_df["plate"] = platename
+    image_columns = combined_df.filter(regex="_image").columns[:2].tolist()
+    varcolumns = combined_df.filter(regex="^(?!.*_image|plate|well)").columns.tolist()
+    new_columns = ["plate", "well"] + image_columns + varcolumns
+    combined_df = combined_df[new_columns]
+    # Rename the columns to remove any prefix before 'intensity_image' and 'mask_image'
+    combined_df.columns = combined_df.columns.str.replace(r'.*_(intensity_image|mask_image)', r'\1', regex=True)
 
-    if POLUS_TAB_EXT == ".csv":
+    if POLUS_TAB_EXT == ".csv":     
         out_name = out_dir.joinpath(f"{platename}.csv")    
         combined_df.to_csv(out_name, index=False)
 
