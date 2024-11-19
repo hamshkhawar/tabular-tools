@@ -1,1 +1,1 @@
-"""Testing Tabular Merger."""
+"""Tabular Feature Concat Tool."""

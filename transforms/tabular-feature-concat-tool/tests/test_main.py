@@ -68,14 +68,6 @@ class Generatedata:
         """Convert pandas dataframe to csv file format."""
         self.df.to_csv(pathlib.Path(self.inp_dir, self.out_name), index=False)
 
-    def parquet_func(self) -> None:
-        """Convert pandas dataframe to parquet file format."""
-        self.df.to_parquet(
-            pathlib.Path(self.inp_dir, self.out_name),
-            engine="auto",
-            compression=None,
-        )
-
     def feather_func(self) -> None:
         """Convert pandas dataframe to feather file format."""
         self.df.to_feather(pathlib.Path(self.inp_dir, self.out_name))
@@ -84,17 +76,10 @@ class Generatedata:
         """Convert pandas dataframe to Arrow file format."""
         self.df.to_feather(pathlib.Path(self.inp_dir, self.out_name))
 
-    def hdf_func(self) -> None:
-        """Convert pandas dataframe to hdf5 file format."""
-        v_df = vaex.from_pandas(self.df, copy_index=False)
-        v_df.export(pathlib.Path(self.inp_dir, self.out_name))
-
     def __call__(self) -> None:
         """To make a class callable."""
         data_ext = {
-            ".hdf5": self.hdf_func,
             ".csv": self.csv_func,
-            ".parquet": self.parquet_func,
             ".feather": self.feather_func,
             ".arrow": self.arrow_func,
         }
@@ -109,7 +94,7 @@ class Generatedata:
             f.unlink()
 
 
-FILE_EXT = [[".hdf5", ".parquet", ".csv", ".feather", ".arrow"]]
+FILE_EXT = [[".csv", ".feather", ".arrow"]]
 
 
 @pytest.fixture(params=FILE_EXT)
