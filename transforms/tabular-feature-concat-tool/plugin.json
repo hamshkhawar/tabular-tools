@@ -1,18 +1,18 @@
 {
-  "name": "Tabular Merger",
-  "version": "0.1.4-dev0",
-  "title": "Tabular Merger",
-  "description": "Merge vaex supported tabular file format into a single merged file.",
-  "author": "Nicholas Schaub (nick.schaub@nih.gov), Hamdah Shafqat Abbasi (hamdahshafqat.abbasi@nih.gov)",
+  "name": "Tabular Feature Concat",
+  "version": "0.1.0-dev0",
+  "title": "Tabular Feature Concat",
+  "description": "Concatenate Nyxus channel features from multiple files, rename channels, and associate metadata.",
+  "author": "Hamdah Shafqat Abbasi (hamdahshafqat.abbasi@nih.gov)",
   "institution": "National Center for Advancing Translational Sciences, National Institutes of Health",
   "repository": "https://github.com/PolusAI/tabular-tools",
   "website": "https://ncats.nih.gov/preclinical/core/informatics",
   "citation": "",
-  "containerId": "polusai/tabular-merger-tool:0.1.4-dev0",
+  "containerId": "polusai/tabular-feature-concat-tool:0.1.0-dev0",
   "baseCommand": [
     "python3",
     "-m",
-    "polus.tabular.transforms.tabular_merger"
+    "polus.tabular.transforms.feature_concat"
   ],
   "inputs": [
     {
@@ -25,45 +25,38 @@
       "name": "filePattern",
       "type": "string",
       "description": "Pattern to parse input files",
-      "default": ".+",
-      "required": false
-    },
-    {
-      "name": "stripExtension",
-      "type": "boolean",
-      "description": "Should file extension be removed for filenames in the merged file column",
       "required": true
     },
     {
-      "name": "dim",
-      "type": "enum",
-      "options": {
-        "values": [
-          "rows",
-          "columns",
-          "default"
-        ]
-      },
-      "description": "Merging dimension",
-      "required": true
-    },
-    {
-      "name": "sameRows",
-      "type": "boolean",
-      "description": "Perform column merge on all files with the same number of rows?",
-      "required": false
-    },
-    {
-      "name": "sameColumns",
-      "type": "boolean",
-      "description": "Perform row merge on all files with the same column names",
-      "required": false
-    },
-    {
-      "name": "mapVar",
+      "name": "groupBy",
       "type": "string",
-      "description": "Column name to join files column wise",
+      "description": "Group files based on variable",
+      "required": true
+    },
+    {
+      "name": "channelName",
+      "type": "string",
+      "description": "Variable for channel name",
+      "required": true
+    },
+    {
+      "name": "features",
+      "type": "string",
+      "description": "List of selected features",
       "required": false
+    },
+    {
+      "name": "metaDir",
+      "type": "genericData",
+      "description": "Path to metadata file",
+      "required": false
+    },
+    {
+      "name": "preview",
+      "type": "boolean",
+      "title": "Preview",
+      "description": "Generate an output preview.",
+      "required": "False"
     }
   ],
   "outputs": [
@@ -76,39 +69,33 @@
   "ui": [
     {
       "key": "inputs.inpDir",
-      "title": "Input collection",
-      "description": "Input image collection to be processed by this plugin"
+      "title": "inpDir",
+      "description": "Input data collection to be processed by this plugin"
     },
     {
       "key": "inputs.filePattern",
       "title": "filePattern",
       "description": "Pattern to parse input files",
-      "default": ".+"
     },
     {
-      "key": "inputs.stripExtension",
-      "title": "Remove File Extension",
-      "description": "Remove file extension in the merged file column"
+      "key": "inputs.groupBy",
+      "title": "groupBy",
+      "description": "Group files based on variable"
     },
     {
-      "key": "inputs.dim",
-      "title": "Merging dimension",
-      "description": "Merge along rows or columns?"
+      "key": "inputs.channelName",
+      "title": "channelName",
+      "description": "Variable for channel name"
     },
     {
-      "key": "inputs.sameRows",
-      "title": "Merge files with equal rows:",
-      "description": "Merge only files with matching number of rows?"
+      "key": "inputs.features",
+      "title": "features",
+      "description": "List of selected features"
     },
     {
-      "key": "inputs.sameColumns",
-      "title": "Merge CSVs with same columns:",
-      "description": "Merge files with with common columns between files?"
-    },
-    {
-      "key": "inputs.mapVar",
-      "title": "Column name use to merge files",
-      "description": "Column name use to merge files"
+      "key": "inputs.metaDir",
+      "title": "metaDir",
+      "description": "Path to metadata file"
     }
   ]
 }

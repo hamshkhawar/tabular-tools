@@ -1,265 +1,174 @@
-# """Tabular Merger."""
-# import enum
-# import functools as ft
-# import logging
-# import os
-# import pathlib
-# from collections import Counter
-# from typing import Optional
-
-# import numpy as np
-# import vaex
-# from tqdm import tqdm
-
-# logger = logging.getLogger(__name__)
-# logger.setLevel(os.environ.get("POLUS_LOG", logging.INFO))
-# POLUS_TAB_EXT = os.environ.get("POLUS_TAB_EXT", ".arrow")
+"""Tabular Feature Concat Tool."""
+import logging
+import os
+import pathlib
+import time
+from typing import Any
+from typing import Optional
+import pyarrow.feather as feather
+import pyarrow as pa
+import pyarrow.csv as pv
+import pandas as pd
+import filepattern as fp
+import time
+from multiprocessing import Pool
 
 
-# class Dimensions(str, enum.Enum):
-#     """File format of an output combined file."""
+logger = logging.getLogger(__name__)
+logger.setLevel(os.environ.get("POLUS_LOG", logging.INFO))
+POLUS_TAB_EXT = os.environ.get("POLUS_TAB_EXT", ".arrow")
 
-#     Rows = "rows"
-#     Columns = "columns"
-#     Default = "rows"
-
-
-# def sorted_dataframe_list(
-#     x: list[vaex.dataframe.DataFrameLocal],
-# ) -> list[vaex.dataframe.DataFrameLocal]:
-#     """Reordering of list of dataframes based on the size.
-
-#     Args:
-#         x: List of vaex dataframes.
-
-#     Returns:
-#         sorted list of vaex dataFrame based on the size.
-#     """
-#     my_dict = dict(zip(x, [x[i].shape[0] for i in range(len(x))]))
-#     occurrences = dict(Counter(my_dict.values()).items())
-
-#     for k, v in my_dict.items():
-#         count = occurrences[v]
-#         if count > 1:
-#             increment = v + 1
-#             my_dict[k] = increment
-#             occurrences[v] = count - 1
-
-#     sorted_values = sorted(my_dict.values(), reverse=True)
-#     i = 0
-#     status = "Unknown"
-#     prf = []
-#     while status != "true":
-#         for o in sorted_values:
-#             for k, v in my_dict.items():
-#                 if v == o:
-#                     status = "true"
-#                     prf.append(k)
-#                     i += 1
-
-#     return prf
+# Set max_workers based on CPU count
+NUM_WORKERS = os.cpu_count() // 2 
+if NUM_WORKERS < 1:
+   NUM_WORKERS = 1  
 
 
-# def remove_files(curr_dir: pathlib.Path) -> None:
-#     """Delete intermediate hdf5 and yaml files in a working directory.
+def read_metadata(meta_dir:pathlib.Path):
+    """
+    Reads and concatenates metadata files (CSV, Arrow, Feather) from a directory.
 
-#     Args:
-#         curr_dir: Path to the working directory.
-#     """
-#     for f in curr_dir.iterdir():
-#         if f.suffix in [".hdf5", ".yaml"]:
-#             f.unlink()
+    Args:
+        meta_dir: Directory containing the metadata files.
 
+    Returns:
+        pandas.DataFrame: Concatenated DataFrame of the metadata files, or None if no valid files are found.
+    """
+    meta_files = []
+    for f in pathlib.Path(meta_dir).iterdir():
+        if f.suffix == ".csv":
+            table = pv.read_csv(f)
+        elif f.suffix in [".arrow", ".feather"]:
+            table = feather.read_table(f)
+        else:
+            continue
+        meta_files.append(table.to_pandas())
+    return pd.concat(meta_files, axis=0) if meta_files else None
 
-# def merge_files(  # noqa: PLR0915 PLR0912 PLR0913 C901
-#     inp_dir_files: list,
-#     strip_extension: bool,
-#     dim: Dimensions,
-#     same_rows: Optional[bool],
-#     same_columns: Optional[bool],
-#     map_var: Optional[str],
-#     out_dir: str,
-# ) -> None:
-#     """Merge several tabular data files into a single file.
+def process_file(file:pathlib.Path, group_vars:list[str], channel_name:str, features:list[str]):
+    """
+    Processes a file and returns a concatenated DataFrame.
 
-#     Merge tabular files with vaex supported file formats into a single combined
-#     file using either row or column merging.
+    Reads a file (.arrow, .feather, or .csv), selects specified features, renames columns with 
+    a channel name, and creates a 'well' column based on the grouping variables.
 
-#     The merged file can be saved into any of the vaex supported file format.
+    Args:
+        file: Path to the file to process.
+        group_vars: List of row and column keys for grouping.
+        channel_name: Base name for renaming columns.
+        features: List of feature names to select.
 
-#     Args:
-#         inp_dir_files: List of an input files.
-#         file_pattern : Pattern to parse input files.
-#         strip_extension:  True to remove csv from the filename in the output file.
-#         dim: To perform merging either `rows` or `columns` wise
-#         same_rows:  Only merge csv files with the same number of rows.
-#         same_columns: Check for common header and then perform merging of files
-#         with common column names.
-#         map_var: Variable Name used to join file column wise.
-#         out_dir:Path to output directory
-#     """
-#     # Generate the path to the output file
-#     out_path = pathlib.Path(out_dir).joinpath(f"merged{POLUS_TAB_EXT}")
-#     curr_dir = pathlib.Path(".").cwd()
+    Returns:
+        pandas.DataFrame: Concatenated DataFrame with processed data.
+    """
 
-#     # Case One: If merging by columns and have same number of rows:
-#     if dim == "columns" and same_rows:
-#         logger.info("Merging data with identical number of rows...")
-#         # Determine the number of output files, and a list of files to be merged
-#         # in each file
-#         dfs = []
-#         headers = []
-#         for in_file in tqdm(
-#             inp_dir_files,
-#             total=len(inp_dir_files),
-#             desc="Vaex loading of file",
-#         ):
-#             if in_file.suffix == ".csv":
-#                 df = vaex.from_csv(in_file, chunk_size=100_000, convert=True)
-#                 [df.rename(f, in_file.stem + "_" + f) for f in list(df.columns)]
-#                 map_var = in_file.stem + "_" + map_var
-#             else:
-#                 df = vaex.open(in_file, convert="bigdata.hdf5")
-#                 [df.rename(f, in_file.stem + "_" + f) for f in list(df.columns)]
-#                 map_var = in_file.stem + "_" + map_var
-#             headers.append(df.get_column_names())
-#             dfs.append(df)
-#             duplicate_columns = len(list(set(headers[0]).intersection(*headers)))
+    _, data = file
+    tables_to_append = []
 
-#             if duplicate_columns == 0:
-#                 df_final = ft.reduce(
-#                     lambda left, right: left.join(right, how="left"),
-#                     dfs,
-#                 )
-#                 df_final.export(out_path)
-#             else:
-#                 ValueError("Duplicated column names in dataframes")
+    for d in data:
+        chvalue = f"{channel_name}{d[0].get(channel_name)}_"
+        file_path = pathlib.Path(d[1][0])
+        file_extension = file_path.suffix.lower()
 
-#     # Case Two: If merging by columns and have different number of rows:
-#     elif dim == "columns" and not same_rows:
-#         if not map_var:
-#             msg = f"mapVar name should be defined {map_var}"
-#             raise ValueError(msg)
+        # Read file based on extension
+        if file_extension in [".arrow", ".feather"]:
+            table = feather.read_table(file_path)
+        elif file_extension == ".csv":
+            table = pv.read_csv(file_path)
+        else:
+            raise ValueError(f"Unsupported file type: {file_extension}. Expected .arrow, .feather, or .csv")
 
-#         dfs = []
-#         headers = []
-#         for in_file in tqdm(
-#             inp_dir_files,
-#             total=len(inp_dir_files),
-#             desc="Vaex loading of file",
-#         ):
-#             if in_file.suffix == ".csv":
-#                 df = vaex.from_csv(in_file, chunk_size=100_000, convert=True)
-#                 [
-#                     df.rename(f, in_file.stem + "_" + f)
-#                     for f in list(df.columns)
-#                     if f != map_var
-#                 ]
-#                 df.add_column(
-#                     "indexcolumn",
-#                     np.array(
-#                         [
-#                             str(i) + "_" + str(p)
-#                             for i, p in zip(
-#                                 range(len(df[map_var].values)),
-#                                 df[map_var].values,
-#                             )
-#                         ],
-#                     ),
-#                 )
-#                 df.rename(map_var, in_file.stem + "_" + map_var)
-#             else:
-#                 df = vaex.open(in_file)
-#                 [
-#                     df.rename(f, in_file.stem + "_" + f)
-#                     for f in list(df.columns)
-#                     if f != map_var
-#                 ]
-#                 df.add_column(
-#                     "indexcolumn",
-#                     np.array(
-#                         [
-#                             str(i) + "_" + str(p)
-#                             for i, p in zip(
-#                                 range(len(df[map_var].values)),
-#                                 df[map_var].values,
-#                             )
-#                         ],
-#                     ),
-#                 )
-#                 df.rename(map_var, in_file.stem + "_" + map_var)
-#             headers.append(df.get_column_names())
-#             dfs.append(df)
-#         dfs = sorted_dataframe_list(dfs)
-#         duplicate_columns = len(list(set(headers[0]).intersection(*headers)))
-#         if duplicate_columns == 1:
-#             df_final = ft.reduce(
-#                 lambda left, right: left.join(
-#                     right,
-#                     how="left",
-#                     left_on="indexcolumn",
-#                     right_on="indexcolumn",
-#                     allow_duplication=False,
-#                 ),
-#                 dfs,
-#             )
-#             df_final.export(out_path)
-#         else:
-#             ValueError("Duplicated column names in dataframes")
+        if features:
+            table = table.select(features)
 
-#     # Case Three: Merging along rows with unique headers
-#     elif dim == "rows" and same_columns:
-#         # Get the column headers
-#         logger.info("Getting all common headers in input files...")
-#         headers = []
-#         for in_file in inp_dir_files:
-#             df = vaex.open(in_file, convert="bigdata.hdf5")
-#             headers.append(list(df.columns))
-#         headers = list(set(headers[0]).intersection(*headers))
-#         logger.info(f"Unique headers: {headers}")
-#         logger.info("Merging the data along rows...")
-#         dfs = []
-#         for in_file in tqdm(
-#             inp_dir_files,
-#             total=len(inp_dir_files),
-#             desc="Vaex loading of file",
-#         ):
-#             if in_file.suffix == ".csv":
-#                 df = vaex.from_csv(in_file, chunk_size=100_000, convert=True)
-#             else:
-#                 df = vaex.open(in_file, convert="bigdata.hdf5")
-#             df = df[list(headers)]
-#             if "file" in list(df.columns):
-#                 list(df.columns).remove("file")
-#             outname = in_file.stem if strip_extension else in_file.name
-#             df["file"] = np.repeat(outname, df.shape[0])
-#             dfs.append(df)
-#         df_final = vaex.concat(dfs)
-#         df_final = df_final[["file"] + [f for f in df_final.get_names() if f != "file"]]
-#         df_final.export(out_path)
+        table = table.to_pandas()
+        table.columns = [chvalue.upper() + col for col in table.columns]
+        table["well"] = None
 
-#     # Case four: Merging along rows without unique headers
-#     else:
-#         logger.info("Merging the data along rows...")
-#         dfs = []
-#         for in_file in tqdm(
-#             inp_dir_files,
-#             total=len(inp_dir_files),
-#             desc="Vaex loading of file",
-#         ):
-#             logger.info(f"loading file {in_file}")
-#             if in_file.suffix == ".csv":
-#                 df = vaex.from_csv(in_file, chunk_size=100_000, convert=True)
-#             else:
-#                 df = vaex.open(in_file)
-#             if "file" in list(df.columns):
-#                 list(df.columns).remove("file")
-#             outname = in_file.stem if strip_extension else in_file.name
-#             df["file"] = np.repeat(outname, df.shape[0])
-#             dfs.append(df)
-#         df_final = vaex.concat(dfs)
-#         df_final = df_final[["file"] + [f for f in df_final.get_names() if f != "file"]]
-#         df_final.export(out_path)
+        if len(group_vars) == 2:
+            rowname = d[0].get(group_vars[0])
+            colname = d[0].get(group_vars[1])
+            table["well"] = f"{rowname}{int(colname):02d}"
+        else:
+            rowname = d[0].get(group_vars[0])
+            table["well"] = f"{rowname}"
+        tables_to_append.append(table)
 
-#     # Delete intermediate files in a working directory
-#     remove_files(curr_dir)
+    return pd.concat(tables_to_append, axis=1)
+
+def feat_concat(inp_dir: pathlib.Path, 
+                out_dir: pathlib.Path, 
+                file_pattern: str, 
+                group_by: str, 
+                channel_name: str, 
+                features: Optional[str] = None, 
+                meta_dir: Optional[pathlib.Path] = None,
+                num_workers: int = NUM_WORKERS):
+
+    """
+    Concatenates features from multiple files and saves the result.
+
+    Processes input files based on a pattern, merges with optional metadata,
+    renames columns, and outputs the concatenated DataFrame in the specified format.
+
+    Args:
+        inp_dir: Directory with input files.
+        out_dir: Directory to save the output.
+        file_pattern: File pattern for matching input files.
+        group_by: Columns to group by.
+        channel_name: Base name for renaming columns.
+        features: Optional list of features to select.
+        meta_dir: Optional directory for metadata files.
+        num_workers: Number of parallel workers.
+    """
+
+    starttime = time.time()
+
+    # Validate paths
+    inp_dir = pathlib.Path(inp_dir).resolve()
+    out_dir = pathlib.Path(out_dir).resolve()
+    assert inp_dir.exists(), f"{inp_dir} does not exist!"
+    assert out_dir.exists(), f"{out_dir} does not exist!"
+
+    # Read metadata if provided
+    metadata = read_metadata(meta_dir) if meta_dir else None
+
+    # Prepare group and feature variables
+    group_vars = [col.strip() for col in group_by.split(",") if col.strip()]
+    features = [col.strip() for col in features.split(",") if col.strip()] if features else []
+
+    # Initialize FilePattern object
+    fps = fp.FilePattern(inp_dir, file_pattern)
+
+    # Process files in parallel
+    with Pool(num_workers) as pool:
+        results = pool.starmap(
+            process_file, 
+            [(file, group_vars, channel_name, features) for file in fps(group_by=group_vars)]
+        )
+
+    # Combine results
+    combined_df = pd.concat(results, axis=0).loc[:, ~pd.concat(results, axis=0).columns.duplicated()]
+    combined_df["plate"] = inp_dir.name
+
+    # Filter and rename columns
+    image_columns = combined_df.filter(regex="_image").columns[:2].tolist()
+    varcolumns = combined_df.filter(regex="^(?!.*_image|plate|well)").columns.tolist()
+    combined_df = combined_df[["plate", "well"] + image_columns + varcolumns]
+    combined_df.columns = combined_df.columns.str.replace(r".*_(intensity_image|mask_image)", r"\1", regex=True)
+
+    # Merge with metadata if available
+    if metadata is not None:
+        combined_df = pd.merge(metadata, combined_df, on=["plate", "well"], how="inner").drop_duplicates()
+
+    # Write output
+    platename = inp_dir.name
+    if POLUS_TAB_EXT == ".csv":
+        combined_df.to_csv(out_dir / f"{platename}.csv", index=False)
+    elif POLUS_TAB_EXT == ".arrow":
+        feather.write_feather(pa.table(combined_df), out_dir / f"{platename}.arrow")
+    else:
+        raise ValueError(f"Unsupported output extension: {POLUS_TAB_EXT}")
+
+    logger.info(f"Execution time: {time.strftime('%H:%M:%S', time.gmtime(time.time() - starttime))}")
+    logger.info("Finished merging files!")

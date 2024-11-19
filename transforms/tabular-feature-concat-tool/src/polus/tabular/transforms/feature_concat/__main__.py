@@ -1,22 +1,12 @@
-"""Tabular Merger."""
+"""Tabular Feature Concat Tool."""
 import json
 import logging
 import os
-import pathlib
-import time
-from typing import Any
-from typing import Optional
-import pyarrow.feather as feather
-import pyarrow.ipc as ipc
-import pyarrow as pa
-import pyarrow.csv as pv
-import pandas as pd
-import itertools
-from typing import List
-
-import filepattern as fp
 import typer
-# from polus.tabular.transforms.feature_concat import tabular_merger as tm
+import pathlib
+import typing
+from typing import Optional
+import polus.tabular.transforms.feature_concat as fc
 
 app = typer.Typer()
 
@@ -37,7 +27,7 @@ def main(  # noqa: PLR0913
         "--inpDir",
         help="Input generic data collection to be processed by this plugin",
     ),
-    file_pattern: str = typer.Option(".+", "--filePattern", help="file_pattern"),
+    file_pattern: str = typer.Option(..., "--filePattern", help="file_pattern"),
     group_by: str = typer.Option(
         ...,
         "--groupBy",
@@ -54,6 +44,12 @@ def main(  # noqa: PLR0913
             "--features",
             help="List of selected features",
         ),
+    meta_dir:Optional[pathlib.Path] =
+        typer.Option(
+            None,
+            "--metaDir",
+            help="Path to metadata file",
+        ),
     out_dir: pathlib.Path = typer.Option(..., "--outDir", help="Output collection"),
     preview: Optional[bool] = typer.Option(
         False,
@@ -68,88 +64,32 @@ def main(  # noqa: PLR0913
     logger.info(f"groupBy = {group_by}")
     logger.info(f"channelName = {channel_name}")
     logger.info(f"features = {features}")
+    logger.info(f"metaDir = {meta_dir}")
 
     inp_dir = pathlib.Path(inp_dir).resolve()
     out_dir = pathlib.Path(out_dir).resolve()
 
-    assert inp_dir.exists(), f"{inp_dir} doesnot exists!! Please check input path again"
-    assert (
-        out_dir.exists()
-    ), f"{out_dir} doesnot exists!! Please check output path again"
+    if preview:
+        with open(pathlib.Path(out_dir).joinpath("preview.json"), "w") as fw:
+            out_files: typing.Dict[str, typing.Union[typing.List, str]] = {
+                r"filepattern": file_pattern,
+                "outDir": [],
+            }
+            platename = f"{pathlib.Path(inp_dir).name}{POLUS_TAB_EXT}"
+            out_files["outDir"]= platename  # type: ignore
+            json.dump(out_files, fw, indent=2)
 
-    starttime = time.time()
-   
-    # Initialize FilePattern object
-    fps = fp.FilePattern(inp_dir, file_pattern)
-    group_vars = [col.strip() for col in group_by.split(",") if col.strip()]
-    features = [col.strip() for col in features.split(",") if col.strip()]
-
-    #Read tables, rename columns, align schemas, and concatenate
-    combined_df = []
-    for file in fps(group_by=group_vars):
-        _, data = file
-        tables_to_append = []
-
-        for d in data:
-            chvalue = f"{channel_name}{d[0].get(channel_name)}_"
-            file_path = pathlib.Path(d[1][0])
-            file_extension = file_path.suffix.lower()
-            if file_extension in [".arrow", ".feather"] :
-                table = feather.read_table(file_path)
-            elif file_extension == ".csv":
-                table = pv.read_csv(file_path)
-            else:
-                raise ValueError(f"Unsupported file type: {file_extension}. Expected .arrow, .feather, or .csv")
-            
-            if features:
-                table = table.select(features)
-
-            table = table.to_pandas()
-            new_column_names = [chvalue.upper() + col for col in table.columns]
-            # Rename the DataFrame columns
-            table.columns = new_column_names
-            table["well"] = None
-            if len(group_vars) == 2:
-                rowname = d[0].get(group_vars[0])
-                colname = d[0].get(group_vars[1])
-                table["well"] = f"{rowname}{int(colname):02d}"
-            else:
-                rowname = d[0].get(group_vars[0])
-                table["well"] = f"{rowname}"
-            tables_to_append.append(table)
-        
-        prf = pd.concat(tables_to_append, axis=1)
-        combined_df.append(prf)
-
-
-    combined_df = pd.concat(combined_df, axis=0)
-    # Remove duplicate columns based on column names
-    combined_df = combined_df.loc[:, ~combined_df.columns.duplicated()]
-    platename = pathlib.Path(inp_dir).name
-    combined_df["plate"] = platename
-    image_columns = combined_df.filter(regex="_image").columns[:2].tolist()
-    varcolumns = combined_df.filter(regex="^(?!.*_image|plate|well)").columns.tolist()
-    new_columns = ["plate", "well"] + image_columns + varcolumns
-    combined_df = combined_df[new_columns]
-    # Rename the columns to remove any prefix before 'intensity_image' and 'mask_image'
-    combined_df.columns = combined_df.columns.str.replace(r'.*_(intensity_image|mask_image)', r'\1', regex=True)
-
-    if POLUS_TAB_EXT == ".csv":     
-        out_name = out_dir.joinpath(f"{platename}.csv")    
-        combined_df.to_csv(out_name, index=False)
-
-    elif POLUS_TAB_EXT == ".arrow":
-        out_name = out_dir.joinpath(f"{platename}.arrow")
-        combined_df = pa.table(combined_df)
-        # Open the file and write the table to it
-        feather.write_feather(combined_df, out_name)
     else:
-        raise ValueError(f"Unsupported output extension: {POLUS_TAB_EXT}. Expected .arrow, .feather, or .csv")
+        fc.feat_concat(inp_dir=inp_dir, 
+                out_dir=out_dir, 
+                file_pattern=file_pattern, 
+                group_by=group_by, 
+                channel_name=channel_name,  # Fixed the semicolon to a colon
+                features=features, 
+                meta_dir=meta_dir
+                )
 
-
-    exec_time = time.time() -starttime
-    logger.info(f"Execution time: {time.strftime('%H:%M:%S', time.gmtime(exec_time))}")
-    logger.info("Finished Merging of files!")
+     
 
 
 if __name__ == "__main__":

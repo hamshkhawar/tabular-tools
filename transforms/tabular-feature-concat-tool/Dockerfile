@@ -10,7 +10,7 @@ ENV POLUS_LOG="INFO"
 WORKDIR ${EXEC_DIR}
 
 # TODO: Change the tool_dir to the tool directory
-ENV TOOL_DIR="transforms/tabular-merger-tool"
+ENV TOOL_DIR="tabular-feature-concat-tool"
 
 # Copy the repository into the container
 RUN mkdir tabular-tools
@@ -21,5 +21,5 @@ RUN pip3 install "${EXEC_DIR}/tabular-tools/${TOOL_DIR}" --no-cache-dir
 
 # Set the entrypoint
 # TODO: Change the entrypoint to the tool entrypoint
-ENTRYPOINT ["python3", "-m", "polus.tabular.transforms.tabular_merger"]
+ENTRYPOINT ["python3", "-m", "polus.tabular.transforms.feature_concat"]
 CMD ["--help"]
