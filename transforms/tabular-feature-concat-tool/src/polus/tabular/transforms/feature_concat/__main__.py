@@ -84,7 +84,7 @@ def main(  # noqa: PLR0913
                 out_dir=out_dir, 
                 file_pattern=file_pattern, 
                 group_by=group_by, 
-                channel_name=channel_name,  # Fixed the semicolon to a colon
+                channel_name=channel_name, 
                 features=features, 
                 meta_dir=meta_dir
                 )
