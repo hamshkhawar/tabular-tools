@@ -10,7 +10,7 @@ ENV POLUS_LOG="INFO"
 WORKDIR ${EXEC_DIR}
 
 # TODO: Change the tool_dir to the tool directory
-ENV TOOL_DIR="tabular-feature-concat-tool"
+ENV TOOL_DIR="transforms/tabular-feature-concat-tool"
 
 # Copy the repository into the container
 RUN mkdir tabular-tools

@@ -75,7 +75,7 @@
     {
       "key": "inputs.filePattern",
       "title": "filePattern",
-      "description": "Pattern to parse input files",
+      "description": "Pattern to parse input files"
     },
     {
       "key": "inputs.groupBy",
