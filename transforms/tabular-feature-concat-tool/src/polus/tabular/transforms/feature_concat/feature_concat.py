@@ -149,7 +149,16 @@ def feat_concat(inp_dir: pathlib.Path,
 
     # Combine results
     combined_df = pd.concat(results, axis=0).loc[:, ~pd.concat(results, axis=0).columns.duplicated()]
-    combined_df["plate"] = inp_dir.name
+    if combined_df.shape[0] == 0:
+        msg=f"Please check the filepattern again"
+        raise ValueError(msg)
+    
+    if ".outDir" in inp_dir.name:
+        platename = inp_dir.parents[0].name.split("__step")[0]
+    else:
+        platename = inp_dir.name
+
+    combined_df["plate"] = platename
 
     # Filter and rename columns
     image_columns = combined_df.filter(regex="_image").columns[:2].tolist()
@@ -157,12 +166,13 @@ def feat_concat(inp_dir: pathlib.Path,
     combined_df = combined_df[["plate", "well"] + image_columns + varcolumns]
     combined_df.columns = combined_df.columns.str.replace(r".*_(intensity_image|mask_image)", r"\1", regex=True)
 
+
     # Merge with metadata if available
     if metadata is not None:
         combined_df = pd.merge(metadata, combined_df, on=["plate", "well"], how="inner").drop_duplicates()
 
-    # Write output
-    platename = inp_dir.name
+    # # Write output
+    # platename = inp_dir.name
     if POLUS_TAB_EXT == ".csv":
         combined_df.to_csv(out_dir / f"{platename}.csv", index=False)
     elif POLUS_TAB_EXT == ".arrow":
