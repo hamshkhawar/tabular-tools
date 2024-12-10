@@ -93,7 +93,7 @@ def main(  # noqa: PLR0913
                 group_by=group_by, 
                 channel_name=channel_name, 
                 features=features, 
-                meta_dir=meta_dir
+                meta_dir=meta_dir,
                 plate_name=plate_name
                 )
 
