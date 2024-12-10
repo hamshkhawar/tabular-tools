@@ -1,7 +1,7 @@
 author:
 - Hamdah Shafqat
 contact: hamdahshafqat.abbasi@nih.gov
-container: polusai/tabular-feature-concat-tool:0.1.0-dev0
+container: polusai/tabular-feature-concat-tool:0.1.0-dev1
 description: Concatenate Nyxus channel features from multiple files, rename channels,
   and associate metadata.
 entrypoint: python3 -m polus.tabular.transforms.feature_concat
@@ -84,4 +84,4 @@ ui:
   key: inputs.metaDir
   title: metaDir
   type: path
-version: 0.1.0-dev0
+version: 0.1.0-dev1

@@ -1,4 +1,4 @@
-# Tabular Feature Concat (v0.1.0-dev0)
+# Tabular Feature Concat (v0.1.0-dev1)
 
 The **Tabular Feature Concat** plugin is designed to concatenate Nyxus channel features from multiple files, rename channels, and associate metadata according to user-defined parameters.
 

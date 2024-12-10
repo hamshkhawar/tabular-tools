@@ -40,7 +40,7 @@ outputs:
     type: Directory
 requirements:
   DockerRequirement:
-    dockerPull: polusai/tabular-feature-concat-tool:0.1.0-dev0
+    dockerPull: polusai/tabular-feature-concat-tool:0.1.0-dev1
   InitialWorkDirRequirement:
     listing:
     - entry: $(inputs.outDir)
