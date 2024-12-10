@@ -15,7 +15,7 @@ If WIPP is running, navigate to the plugins page and add a new plugin. Paste the
 
 ## Options
 
-This plugin takes eight input argument and one output argument:
+This plugin takes nine input argument and one output argument:
 
 | Name               | Description                                                | I/O    | Type          |
 |--------------------|------------------------------------------------------------|--------|---------------|
@@ -25,6 +25,7 @@ This plugin takes eight input argument and one output argument:
 | `--channelName`    | Variable for channel name                                 | Input  | string         |
 | `--features`       | Merge tabular files with the same number of rows?          | Input  | string       |
 | `--metaDir`        | Path to metadata directory                             | Input  | genericData       |
+| `--plateName`        | Plate name for merging with metadata                             | Input  | string      |
 | `--outDir`         | Output file                                                | Output | genericData   |
 | `--preview`        | Generate JSON file with outputs                            | Output | JSON          |
 

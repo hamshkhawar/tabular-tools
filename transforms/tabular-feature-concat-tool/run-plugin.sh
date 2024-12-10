@@ -8,6 +8,7 @@ metaDir=/data/meta
 filePattern="{row:c+}_{col:d+}_c{c:d}.arrow"
 groupBy=row,col
 channelName=c 
+plateName=CD_SOD1_2_E1023974__1
 features=intensity_image,mask_image,MEAN
 
 # Output paths
@@ -26,4 +27,5 @@ docker run --mount type=bind,source=${datapath},target=/data/  \
             --channelName ${channelName} \
             --features ${features} \
             --metaDir ${metaDir} \
+            --plateName ${plateName} \
             --outDir ${outDir}

@@ -52,6 +52,12 @@
       "required": false
     },
     {
+      "name": "plateName",
+      "type": "string",
+      "description": "Plate name for merging with metadata file",
+      "required": false
+    },
+    {
       "name": "preview",
       "type": "boolean",
       "title": "Preview",
@@ -96,6 +102,11 @@
       "key": "inputs.metaDir",
       "title": "metaDir",
       "description": "Path to metadata file"
+    },
+    {
+      "key": "inputs.plateName",
+      "title": "plateName",
+      "description": "Plate name for merging with metadata file"
     }
   ]
 }

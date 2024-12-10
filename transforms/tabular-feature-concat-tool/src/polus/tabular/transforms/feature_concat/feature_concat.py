@@ -103,6 +103,7 @@ def feat_concat(inp_dir: pathlib.Path,
                 channel_name: str, 
                 features: Optional[str] = None, 
                 meta_dir: Optional[pathlib.Path] = None,
+                plate_name:Optional[str] = None, 
                 num_workers: int = NUM_WORKERS):
 
     """
@@ -119,6 +120,7 @@ def feat_concat(inp_dir: pathlib.Path,
         channel_name: Base name for renaming columns.
         features: Optional list of features to select.
         meta_dir: Optional directory for metadata files.
+        plate_name: Optional directory name for merging with metadata files.
         num_workers: Number of parallel workers.
     """
 
@@ -153,10 +155,11 @@ def feat_concat(inp_dir: pathlib.Path,
         msg=f"Please check the filepattern again"
         raise ValueError(msg)
     
-    if ".outDir" in inp_dir.name:
-        platename = inp_dir.parents[0].name.split("__step")[0]
+    if plate_name:
+        platename = plate_name
     else:
         platename = inp_dir.name
+    
 
     combined_df["plate"] = platename
 

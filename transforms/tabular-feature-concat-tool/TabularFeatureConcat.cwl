@@ -25,6 +25,10 @@ inputs:
     inputBinding:
       prefix: --metaDir
     type: Directory?
+  plateName:
+    inputBinding:
+      prefix: --plateName?
+    type: string
   outDir:
     inputBinding:
       prefix: --outDir
