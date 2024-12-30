@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "polus-tabular-transforms-feature-concat"
-version = "0.1.0-dev2"
+version = "0.1.0-dev3"
 description = "Concatenate Nyxus channel features from multiple files, rename channels, and associate metadata."
 authors = [
 "Hamdah Shafqat abbasi <hamdahshafqat.abbasi@nih.gov>"
