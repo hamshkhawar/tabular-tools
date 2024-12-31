@@ -82,6 +82,7 @@ def process_file(file:pathlib.Path, group_vars:list[str], channel_name:str, feat
             table = table.select(features)
 
         table = table.to_pandas()
+ 
         table.columns = [chvalue.upper() + col for col in table.columns]
         table["well"] = None
 
@@ -93,6 +94,7 @@ def process_file(file:pathlib.Path, group_vars:list[str], channel_name:str, feat
             rowname = d[0].get(group_vars[0])
             table["well"] = f"{rowname}"
         tables_to_append.append(table)
+
 
     return pd.concat(tables_to_append, axis=1)
 
@@ -149,8 +151,10 @@ def feat_concat(inp_dir: pathlib.Path,
             [(file, group_vars, channel_name, features) for file in fps(group_by=group_vars)]
         )
 
-    # Combine results
-    combined_df = pd.concat(results, axis=0).loc[:, ~pd.concat(results, axis=0).columns.duplicated()]
+    # # Combine results
+    results = [df.loc[:, ~df.columns.duplicated()] for df in results]
+    combined_df = pd.concat(results, axis=0, ignore_index=True)
+    
     if combined_df.shape[0] == 0:
         msg=f"Please check the filepattern again"
         raise ValueError(msg)
@@ -168,7 +172,6 @@ def feat_concat(inp_dir: pathlib.Path,
     varcolumns = combined_df.filter(regex="^(?!.*_image|plate|well)").columns.tolist()
     combined_df = combined_df[["plate", "well"] + image_columns + varcolumns]
     combined_df.columns = combined_df.columns.str.replace(r".*_(intensity_image|mask_image)", r"\1", regex=True)
-
 
     # Merge with metadata if available
     if metadata is not None:
