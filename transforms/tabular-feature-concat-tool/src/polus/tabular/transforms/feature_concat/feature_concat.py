@@ -45,7 +45,7 @@ def read_metadata(meta_dir:pathlib.Path):
         meta_files.append(table.to_pandas())
     return pd.concat(meta_files, axis=0) if meta_files else None
 
-def process_file(file:pathlib.Path, group_vars:list[str], channel_name:str, features:list[str]):
+def process_file(file:pathlib.Path, group_vars:list[str], channel_name:str, features:list[str], meta_cols:Optional[list[str]]):
     """
     Processes a file and returns a concatenated DataFrame.
 
@@ -55,6 +55,7 @@ def process_file(file:pathlib.Path, group_vars:list[str], channel_name:str, feat
     Args:
         file: Path to the file to process.
         group_vars: List of row and column keys for grouping.
+        meta_cols: Optional feature name for merging metadata file.
         channel_name: Base name for renaming columns.
         features: List of feature names to select.
 
@@ -83,16 +84,27 @@ def process_file(file:pathlib.Path, group_vars:list[str], channel_name:str, feat
 
         table = table.to_pandas()
  
-        table.columns = [chvalue.upper() + col for col in table.columns]
-        table["well"] = None
+        table.columns = [chvalue.upper() + col for col in table.columns] 
 
-        if len(group_vars) == 2:
+        if meta_cols:
+            for col in meta_cols:
+                table[col] = None
+
             rowname = d[0].get(group_vars[0])
-            colname = d[0].get(group_vars[1])
-            table["well"] = f"{rowname}{int(colname):02d}"
+            table[meta_cols[0]] = rowname
+            if len(meta_cols) == 2 and len(group_vars) == 2:
+                colname = d[0].get(group_vars[1])
+                table[meta_cols[1]] = colname
+
         else:
+            table["well"] = None
             rowname = d[0].get(group_vars[0])
-            table["well"] = f"{rowname}"
+
+            if len(group_vars) == 2:
+                colname = d[0].get(group_vars[1])
+                table["well"] = f"{rowname}{int(colname):02d}"
+            else:
+                table["well"] = f"{rowname}"
         tables_to_append.append(table)
 
 
@@ -105,6 +117,7 @@ def feat_concat(inp_dir: pathlib.Path,
                 channel_name: str, 
                 features: Optional[str] = None, 
                 meta_dir: Optional[pathlib.Path] = None,
+                meta_cols: Optional[str] = None,
                 plate_name:Optional[str] = None, 
                 num_workers: int = NUM_WORKERS):
 
@@ -122,6 +135,7 @@ def feat_concat(inp_dir: pathlib.Path,
         channel_name: Base name for renaming columns.
         features: Optional list of features to select.
         meta_dir: Optional directory for metadata files.
+        meta_cols: Optional feature name for merging metadata file.
         plate_name: Optional directory name for merging with metadata files.
         num_workers: Number of parallel workers.
     """
@@ -136,9 +150,11 @@ def feat_concat(inp_dir: pathlib.Path,
 
     # Read metadata if provided
     metadata = read_metadata(meta_dir) if meta_dir else None
+    
 
-    # Prepare group and feature variables
+    # # Prepare group and feature variables
     group_vars = [col.strip() for col in group_by.split(",") if col.strip()]
+    meta_cols = [col.strip() for col in meta_cols.split(",") if col.strip()]
     features = [col.strip() for col in features.split(",") if col.strip()] if features else []
 
     # Initialize FilePattern object
@@ -148,10 +164,10 @@ def feat_concat(inp_dir: pathlib.Path,
     with Pool(num_workers) as pool:
         results = pool.starmap(
             process_file, 
-            [(file, group_vars, channel_name, features) for file in fps(group_by=group_vars)]
+            [(file, group_vars, channel_name, features, meta_cols) for file in fps(group_by=group_vars)]
         )
 
-    # # Combine results
+    # # # # Combine results
     results = [df.loc[:, ~df.columns.duplicated()] for df in results]
     combined_df = pd.concat(results, axis=0, ignore_index=True)
     
@@ -167,15 +183,20 @@ def feat_concat(inp_dir: pathlib.Path,
 
     combined_df["plate"] = platename
 
-    # Filter and rename columns
+    # # Filter and rename columns
     image_columns = combined_df.filter(regex="_image").columns[:2].tolist()
-    varcolumns = combined_df.filter(regex="^(?!.*_image|plate|well)").columns.tolist()
-    combined_df = combined_df[["plate", "well"] + image_columns + varcolumns]
+    varcolumns = combined_df.filter(regex=f"^(?!.*_image|plate|well|{meta_cols[0]}|{meta_cols[1]})").columns.tolist()
+    merge_columns = ["plate", "well"] if meta_cols is None else ["plate"] + [meta_cols[0]] + [meta_cols[1]]
+    combined_df = combined_df[merge_columns + image_columns + varcolumns]
     combined_df.columns = combined_df.columns.str.replace(r".*_(intensity_image|mask_image)", r"\1", regex=True)
 
     # Merge with metadata if available
     if metadata is not None:
-        combined_df = pd.merge(metadata, combined_df, on=["plate", "well"], how="inner").drop_duplicates()
+        merge_keys = ["plate", "well"] if meta_cols is None else ["plate"] + [meta_cols[0]] + [meta_cols[1]]
+        combined_df = (
+            pd.merge(metadata, combined_df, on=merge_keys, how="inner")
+            .drop_duplicates()
+        )
 
     # # Write output
     # platename = inp_dir.name

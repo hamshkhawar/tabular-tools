@@ -50,6 +50,12 @@ def main(  # noqa: PLR0913
             "--metaDir",
             help="Path to metadata file",
         ),
+    meta_cols:Optional[str] =
+        typer.Option(
+            None,
+            "--metaCols",
+            help="Metadata columns for merging",
+        ),
     plate_name:Optional[str] =
         typer.Option(
             None,
@@ -71,6 +77,7 @@ def main(  # noqa: PLR0913
     logger.info(f"channelName = {channel_name}")
     logger.info(f"features = {features}")
     logger.info(f"metaDir = {meta_dir}")
+    logger.info(f"metaCols = {meta_cols}")
     logger.info(f"plateName = {plate_name}")
 
     inp_dir = pathlib.Path(inp_dir).resolve()
@@ -94,6 +101,7 @@ def main(  # noqa: PLR0913
                 channel_name=channel_name, 
                 features=features, 
                 meta_dir=meta_dir,
+                meta_cols=meta_cols,
                 plate_name=plate_name
                 )
 
