@@ -25,6 +25,7 @@ This plugin takes nine input argument and one output argument:
 | `--channelName`    | Variable for channel name                                 | Input  | string         |
 | `--features`       | Merge tabular files with the same number of rows?          | Input  | string       |
 | `--metaDir`        | Path to metadata directory                             | Input  | genericData       |
+| `--metaCols`        | Metadata features for merging                             | Input  | string       |
 | `--plateName`        | Plate name for merging with metadata                             | Input  | string      |
 | `--outDir`         | Output file                                                | Output | genericData   |
 | `--preview`        | Generate JSON file with outputs                            | Output | JSON          |

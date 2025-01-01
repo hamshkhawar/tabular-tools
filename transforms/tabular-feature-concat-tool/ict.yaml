@@ -43,6 +43,12 @@ inputs:
     name: metaDir
     required: false
     type: path
+  - description: List of metadata features for merging
+    format:
+      - string
+    name: metaCols
+    required: false
+    type: string
   - description: Generate an output preview.
     format:
       - boolean

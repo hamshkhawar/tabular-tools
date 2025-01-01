@@ -52,6 +52,12 @@
       "required": false
     },
     {
+      "name": "metaCols",
+      "type": "string",
+      "description": "List of metadata features for merging",
+      "required": false
+    },
+    {
       "name": "plateName",
       "type": "string",
       "description": "Plate name for merging with metadata file",
@@ -102,6 +108,11 @@
       "key": "inputs.metaDir",
       "title": "metaDir",
       "description": "Path to metadata file"
+    },
+    {
+      "key": "inputs.metaCols",
+      "title": "metaCols",
+      "description": "List of metadata features for merging"
     },
     {
       "key": "inputs.plateName",
