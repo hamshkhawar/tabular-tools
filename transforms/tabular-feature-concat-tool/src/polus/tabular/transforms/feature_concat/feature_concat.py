@@ -191,15 +191,22 @@ def feat_concat(inp_dir: pathlib.Path,
     combined_df.columns = combined_df.columns.str.replace(r".*_(intensity_image|mask_image)", r"\1", regex=True)
 
     # Merge with metadata if available
-    if metadata is not None:
-        merge_keys = ["plate", "well"] if meta_cols is None else ["plate"] + [meta_cols[0]] + [meta_cols[1]]
-        combined_df = (
-            pd.merge(metadata, combined_df, on=merge_keys, how="inner")
-            .drop_duplicates()
-        )
+    if meta_cols is None:
+        merge_keys = ["plate", "well"]
+    elif len(meta_cols) == 1:
+        merge_keys = ["plate"] + [meta_cols[0]]
+    elif len(meta_cols) == 2:
+        merge_keys = ["plate"] + [meta_cols[0]] + [meta_cols[1]]
+    else:
+        raise ValueError("meta_cols should have at most 2 elements")
+    
+    combined_df = (
+        pd.merge(metadata, combined_df, on=merge_keys, how="inner")
+        .drop_duplicates()
+    )
 
     # # Write output
-    # platename = inp_dir.name
+    platename = inp_dir.name
     if POLUS_TAB_EXT == ".csv":
         combined_df.to_csv(out_dir / f"{platename}.csv", index=False)
     elif POLUS_TAB_EXT == ".arrow":
